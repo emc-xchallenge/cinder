@@ -3238,25 +3238,20 @@ class EMCVnxCliBase(object):
     def _exec_command_setpath(self, initiator_uid, sp, port_id,
                               ip, host, vport_id=None):
         gname = host
+        cmd_setpath = None
         if vport_id is not None:
-            cmd_iscsi_setpath = ('storagegroup', '-setpath', '-gname', gname,
-                                 '-hbauid', initiator_uid, '-sp', sp,
-                                 '-spport', port_id, '-spvport', vport_id,
-                                 '-ip', ip, '-host', host, '-o')
-            out, rc = self._client.command_execute(*cmd_iscsi_setpath)
+            cmd_setpath = ('storagegroup', '-setpath', '-gname', gname,
+                           '-hbauid', initiator_uid, '-sp', sp,
+                           '-spport', port_id, '-spvport', vport_id,
+                           '-ip', ip, '-host', host, '-o')
         else:
-            cmd_fc_setpath = ('storagegroup', '-setpath', '-gname', gname,
-                              '-hbauid', initiator_uid, '-sp', sp,
-                              '-spport', port_id,
-                              '-ip', ip, '-host', host, '-o')
-            out, rc = self._client.command_execute(*cmd_fc_setpath)
+            cmd_setpath = ('storagegroup', '-setpath', '-gname', gname,
+                           '-hbauid', initiator_uid, '-sp', sp,
+                           '-spport', port_id,
+                           '-ip', ip, '-host', host, '-o')
+        out, rc = self._client.command_execute(*cmd_setpath)
         if rc != 0:
-            LOG.warning(_LW("Failed to register %(itor)s to SP%(sp)s "
-                            "port %(portid)s because: %(msg)s."),
-                        {'itor': initiator_uid,
-                         'sp': sp,
-                         'portid': port_id,
-                         'msg': out})
+            self._client._raise_cli_error(cmd_setpath, rc, out)
 
     def auto_register_with_io_port_filter(self, connector, sgdata,
                                           io_port_filter):
@@ -3445,11 +3440,28 @@ class EMCVnxCliBase(object):
 
         :returns: True if has registered initiator otherwise return False
         """
-        if io_ports_filter:
-            return self.auto_register_with_io_port_filter(connector, sgdata,
-                                                          io_ports_filter)
-        else:
-            return self.auto_register_initiator_to_all(connector, sgdata)
+        try:
+            if io_ports_filter:
+                return self.auto_register_with_io_port_filter(
+                    connector, sgdata, io_ports_filter)
+            else:
+                return self.auto_register_initiator_to_all(connector, sgdata)
+        except exception.EMCVnxCLICmdError:
+            with excutils.save_and_reraise_exception():
+                if self.protocol == 'iSCSI':
+                    initiator_uids = self._extract_iscsi_uids(connector)
+                elif self.protocol == 'FC':
+                    initiator_uids = self._extract_fc_uids(connector)
+                if sgdata:
+                    initiator_uids = self._filter_unregistered_initiators(
+                        initiator_uids, sgdata)
+                for uid in initiator_uids:
+                    rc, out = self._client.deregister_initiator(uid)
+                    if rc != 0:
+                        LOG.warning(
+                            _LW("Failed to deregister %(itor)s: %(msg)s."),
+                            {'itor': uid, 'msg': out})
+                        # Ignore error on deregister
 
     def assure_host_access(self, volume, connector):
         hostname = connector['host']

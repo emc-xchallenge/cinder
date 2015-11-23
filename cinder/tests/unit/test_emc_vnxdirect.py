@@ -5339,6 +5339,59 @@ class EMCVNXCLIDriverFCTestCase(DriverTestCaseBase):
             mock.call('port', '-removeHBA', '-hbauid', fc_itor_2, '-o')]
         fake_cli.assert_has_calls(expect_cmd)
 
+    @mock.patch(
+        "oslo_concurrency.processutils.execute",
+        mock.Mock(
+            return_value=(
+                "fakeportal iqn.1992-04.fake.com:fake.apm00123907237.a8", 0)))
+    @mock.patch('random.randint',
+                mock.Mock(return_value=0))
+    def test_initialize_connection_fc_auto_reg_failed(self):
+        # Test for auto registration
+        test_volume = self.testData.test_volume.copy()
+        test_volume['provider_location'] = 'system^fakesn|type^lun|id^1'
+        self.configuration.initiator_auto_registration = True
+        commands = [self.testData.STORAGEGROUP_LIST_CMD('fakehost'),
+                    self.testData.GETFCPORT_CMD(),
+                    ('port', '-list', '-gname', 'fakehost'),
+                    self.testData.set_path_cmd(
+                        'fakehost', '22:34:56:78:90:12:34:56:12:34:56:78:90'
+                        ':12:34:56', 'A', '0', None, '10.0.0.2'),
+                    self.testData.set_path_cmd(
+                        'fakehost', '22:34:56:78:90:12:34:56:12:34:56:78:90'
+                        ':12:34:56', 'B', '2', None, '10.0.0.2')]
+        results = [[("No group", 83),
+                    self.testData.STORAGE_GROUP_HAS_MAP('fakehost')],
+                   self.testData.FC_PORTS,
+                   self.testData.FAKEHOST_PORTS,
+                   ("", 0),
+                   ("Error most likely due to trying to add more than "
+                    "the max number of initiators to a port", 66)]
+
+        fake_cli = self.driverSetup(commands, results)
+        self.assertRaisesRegex(
+            exception.EMCVnxCLICmdError,
+            'Error most likely due to trying to add more than',
+            self.driver.initialize_connection,
+            test_volume,
+            self.testData.connector)
+        fc_uid_1 = '22:34:56:78:90:12:34:56:12:34:56:78:90:12:34:56'
+        fc_uid_2 = '22:34:56:78:90:54:32:16:12:34:56:78:90:54:32:16'
+        expected = [mock.call(*self.testData.STORAGEGROUP_LIST_CMD('fakehost'),
+                              poll=False),
+                    mock.call('storagegroup', '-create', '-gname', 'fakehost'),
+                    mock.call('port', '-list', '-sp'),
+                    mock.call(*self.testData.set_path_cmd(
+                        'fakehost', '22:34:56:78:90:12:34:56:12:34:56:78:90'
+                        ':12:34:56', 'A', '0', None, '10.0.0.2')),
+                    mock.call(*self.testData.set_path_cmd(
+                        'fakehost', '22:34:56:78:90:12:34:56:12:34:56:78:90'
+                        ':12:34:56', 'B', '2', None, '10.0.0.2')),
+                    mock.call('port', '-removeHBA', '-hbauid', fc_uid_1, '-o'),
+                    mock.call('port', '-removeHBA', '-hbauid', fc_uid_2, '-o'),
+                    ]
+        fake_cli.assert_has_calls(expected)
+
 
 class EMCVNXCLIToggleSPTestData(object):
     def FAKE_COMMAND_PREFIX(self, sp_address):
