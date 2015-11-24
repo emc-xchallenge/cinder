@@ -3441,11 +3441,19 @@ class EMCVnxCliBase(object):
 
         :returns: True if has registered initiator otherwise return False
         """
+        auto_registration_done = False
         if io_ports_filter:
-            return self.auto_register_with_io_port_filter(connector, sgdata,
+            auto_registration_done = self.auto_register_with_io_port_filter(connector, sgdata,
                                                           io_ports_filter)
         else:
-            return self.auto_register_initiator_to_all(connector, sgdata)
+            auto_registration_done = self.auto_register_initiator_to_all(connector, sgdata)
+            
+        if not auto_registration_done:
+            self._deregister_initiators(connector)
+            raise    
+        else:
+            return True
+
 
     def assure_host_access(self, volume, connector):
         hostname = connector['host']
