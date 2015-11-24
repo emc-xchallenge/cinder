@@ -1199,6 +1199,11 @@ class VolumeManager(manager.SchedulerDependentManager):
                 LOG.debug("Uploaded volume to glance image-id: %(image_id)s.",
                           {'image_id': image_meta['id']},
                           resource=volume)
+        except exception.ImageNotAuthorized:
+            LOG.debug(_LE("Update image state Success but token expire :"
+                          "(image-id: %(image_id)s)."), 
+                      {'image_id': image_meta['id'] },
+                      resource=volume)
         except Exception as error:
             LOG.error(_LE("Upload volume to image encountered an error "
                           "(image-id: %(image_id)s)."),
