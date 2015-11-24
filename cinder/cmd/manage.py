@@ -185,7 +185,9 @@ class HostCommands(object):
         Can be filtered by zone.
         args: [zone]
         """
-        print(_("%(host)-25s\t%(zone)-15s") % {'host': 'host', 'zone': 'zone'})
+        out_utf = (_("%(host)-25s\t%(availability_zone)-15s") % {'host': 'host', 'availability_zone': 'availability_zone'})
+        out_uni = out_utf.decode()
+        print('%s' % out_uni)
         ctxt = context.get_admin_context()
         services = objects.ServiceList.get_all(ctxt)
         if zone:
@@ -196,9 +198,11 @@ class HostCommands(object):
                 hosts.append(srv)
 
         for h in hosts:
-            print(_("%(host)-25s\t%(availability_zone)-15s")
+            out_utf = (_("%(host)-25s\t%(availability_zone)-15s")
                   % {'host': h['host'],
                      'availability_zone': h['availability_zone']})
+            out_uni = out_utf.decode()
+            print('%s' % out_uni)
 
 
 class DbCommands(object):
@@ -525,7 +529,6 @@ def get_arg_string(args):
         arg = args
 
     return arg
-
 
 def fetch_func_args(func):
     fn_args = []
