@@ -194,3 +194,13 @@ class API(base.Base):
             raise exception.ServerNotFound(uuid=server_id)
         except request_exceptions.Timeout:
             raise exception.APITimeout(service='Nova')
+
+    def is_server_exist(self, context, server_id):
+        try:
+            if server_id is not None:
+                server = self.get_server(context, server_id)
+                if server is not None:
+                    return True
+        except exception.ServerNotFound:
+            LOG.error("Server (%s) not found or deleted", server_id)
+        return False

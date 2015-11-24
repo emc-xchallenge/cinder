@@ -614,7 +614,7 @@ class VolumeManager(manager.SchedulerDependentManager):
         else:
             project_id = context.project_id
 
-        if volume['attach_status'] == "attached":
+        if vol_utils.is_volume_attached(context, volume):
             # Volume is still attached, need to detach first
             raise exception.VolumeAttached(volume_id=volume_id)
         if vol_utils.extract_host(volume.host) != self.host:

@@ -383,7 +383,8 @@ class API(base.Base):
                      resource={'type': 'volume',
                                'id': volume_id})
             return
-        if volume['attach_status'] == "attached":
+
+        if volume_utils.is_volume_attached(context, volume):
             # Volume is still attached, need to detach first
             LOG.info(_LI('Unable to delete volume: %s, '
                          'volume is attached.'), volume['id'])
