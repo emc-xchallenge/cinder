@@ -3439,13 +3439,22 @@ class EMCVnxCliBase(object):
     def auto_register_initiator(self, connector, sgdata, io_ports_filter=None):
         """Automatically register available initiators.
 
-        :returns: True if has registered initiator otherwise return False
+        :returns: True if has registered initiator otherwise throw an exception
         """
+        ret = False
         if io_ports_filter:
-            return self.auto_register_with_io_port_filter(connector, sgdata,
+            ret = self.auto_register_with_io_port_filter(connector, sgdata,
                                                           io_ports_filter)
         else:
-            return self.auto_register_initiator_to_all(connector, sgdata)
+            ret = self.auto_register_initiator_to_all(connector, sgdata)
+
+        if (ret == False):
+            msg = _("Failed to register all initiators to %(host)" % \
+                    {'host': connector['host']}
+            LOG.error(msg)
+            raise exception.VolumeBackendAPIException(data=msg)
+
+        return True
 
     def assure_host_access(self, volume, connector):
         hostname = connector['host']
