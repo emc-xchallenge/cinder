@@ -185,7 +185,11 @@ class HostCommands(object):
         Can be filtered by zone.
         args: [zone]
         """
-        print(_("%(host)-25s\t%(zone)-15s") % {'host': 'host', 'zone': 'zone'})
+
+        printf(_("%(host)-25s\t%(zone)-15s").decode('utf-8')
+              % {'host': 'host',
+                 'zone': 'zone'})
+
         ctxt = context.get_admin_context()
         services = objects.ServiceList.get_all(ctxt)
         if zone:
@@ -196,7 +200,7 @@ class HostCommands(object):
                 hosts.append(srv)
 
         for h in hosts:
-            print(_("%(host)-25s\t%(availability_zone)-15s")
+            print(_("%(host)-25s\t%(availability_zone)-15s").decode('utf-8')
                   % {'host': h['host'],
                      'availability_zone': h['availability_zone']})
 
