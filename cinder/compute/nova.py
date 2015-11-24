@@ -16,7 +16,6 @@
 Handles all requests to Nova.
 """
 
-
 from novaclient import client as nova_client
 from novaclient import exceptions as nova_exceptions
 from novaclient import service_catalog
@@ -194,3 +193,13 @@ class API(base.Base):
             raise exception.ServerNotFound(uuid=server_id)
         except request_exceptions.Timeout:
             raise exception.APITimeout(service='Nova')
+
+    def has_server(self, context, server_id):
+        ret = False
+        try:
+            if server_id is not None:
+                self.get_server(context, server_id)
+                ret = True
+        except exception.ServerNotFound:
+            LOG.debug("Server (%s) not found or deleted", server_id)
+        return ret

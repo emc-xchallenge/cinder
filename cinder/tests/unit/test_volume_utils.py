@@ -26,6 +26,7 @@ from oslo_config import cfg
 
 from cinder import context
 from cinder import exception
+from cinder.exception import ServerNotFound
 from cinder import test
 from cinder.tests.unit import fake_snapshot
 from cinder.tests.unit import fake_volume
@@ -658,6 +659,32 @@ class CopyVolumeTestCase(test.TestCase):
         self.assertIsNone(output)
         mock_transfer.assert_called_once_with(mock.ANY, mock.ANY,
                                               1073741824, mock.ANY)
+
+
+class IsVolumeAttachedTest(test.TestCase):
+    attached_volume = {'attach_status': 'attached',
+                       'instance_uuid': 'server_1'}
+
+    detached_volume = {'attach_status': 'detached',
+                       'instance_uuid': 'server_2'}
+
+    @mock.patch('cinder.compute.nova.API.get_server')
+    def test_is_volume_attached_not_found(self, mocked):
+        mocked.side_effect = ServerNotFound('server_1')
+        self.assertEqual(
+            False,
+            volume_utils.is_volume_attached(None, self.attached_volume))
+
+    @mock.patch('cinder.compute.nova.API.get_server')
+    def test_is_volume_attached(self, _):
+        self.assertEqual(
+            True,
+            volume_utils.is_volume_attached(None, self.attached_volume))
+
+    def test_is_volume_attached_detached(self):
+        self.assertEqual(
+            False,
+            volume_utils.is_volume_attached(None, self.detached_volume))
 
 
 class VolumeUtilsTestCase(test.TestCase):

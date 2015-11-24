@@ -16,6 +16,7 @@ import mock
 
 from cinder.compute import nova
 from cinder import context
+from cinder.exception import ServerNotFound
 from cinder import test
 
 
@@ -27,9 +28,9 @@ class NovaClientTestCase(test.TestCase):
                                           auth_token='token', is_admin=False)
         self.ctx.service_catalog = \
             [{'type': 'compute', 'name': 'nova', 'endpoints':
-              [{'publicURL': 'http://novahost:8774/v2/e3f0833dc08b4cea'}]},
+                [{'publicURL': 'http://novahost:8774/v2/e3f0833dc08b4cea'}]},
              {'type': 'identity', 'name': 'keystone', 'endpoints':
-              [{'publicURL': 'http://keystonehost:5000/v2.0'}]}]
+                 [{'publicURL': 'http://keystonehost:5000/v2.0'}]}]
 
         self.override_config('nova_endpoint_template',
                              'http://novahost:8774/v2/%(project_id)s')
@@ -131,3 +132,15 @@ class NovaApiTestCase(test.TestCase):
             'attach_id',
             'new_volume_id'
         )
+
+    @mock.patch('cinder.compute.nova.API.get_server')
+    def test_has_server_not_found(self, mocked):
+        mocked.side_effect = ServerNotFound('server_1')
+        self.assertEqual(False, self.api.has_server(self.ctx, 'server_1'))
+
+    @mock.patch('cinder.compute.nova.API.get_server')
+    def test_has_server(self, _):
+        self.assertEqual(True, self.api.has_server(self.ctx, 'server_2'))
+
+    def test_has_server_none_input(self):
+        self.assertEqual(False, self.api.has_server(self.ctx, None))

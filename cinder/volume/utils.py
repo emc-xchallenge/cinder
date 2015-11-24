@@ -34,6 +34,7 @@ import six
 from six.moves import range
 
 from cinder.brick.local_dev import lvm as brick_lvm
+from cinder.compute import nova
 from cinder import context
 from cinder import db
 from cinder import exception
@@ -507,6 +508,11 @@ def clear_volume(volume_size, volume_path, volume_clear=None,
     if duration < 1:
         duration = 1
     LOG.info(_LI('Elapsed time for clear volume: %.2f sec'), duration)
+
+
+def is_volume_attached(ctx, volume):
+    return (volume['attach_status'] == "attached" and
+            nova.API().has_server(ctx, volume['instance_uuid']))
 
 
 def supports_thin_provisioning():
