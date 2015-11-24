@@ -19,13 +19,19 @@ See http://docs.openstack.org/developer/oslo.i18n/usage.html .
 """
 
 import oslo_i18n as i18n
+import six
 
 DOMAIN = 'cinder'
 
 _translators = i18n.TranslatorFactory(domain=DOMAIN)
 
+
+def _wrapper(msg):
+    return six.text_type(_translators.primary(msg))
+
+
 # The primary translation function using the well-known name "_"
-_ = _translators.primary
+_ = _wrapper
 
 # Translators for log levels.
 #
