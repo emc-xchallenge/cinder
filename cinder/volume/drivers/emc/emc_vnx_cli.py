@@ -3246,13 +3246,7 @@ class EMCVnxCliBase(object):
                               '-spport', port_id,
                               '-ip', ip, '-host', host, '-o')
             out, rc = self._client.command_execute(*cmd_fc_setpath)
-        if rc != 0:
-            LOG.warning(_LW("Failed to register %(itor)s to SP%(sp)s "
-                            "port %(portid)s because: %(msg)s."),
-                        {'itor': initiator_uid,
-                         'sp': sp,
-                         'portid': port_id,
-                         'msg': out})
+        return rc
 
     def auto_register_with_io_port_filter(self, connector, sgdata,
                                           io_port_filter):
@@ -3319,19 +3313,28 @@ class EMCVnxCliBase(object):
             target_portals_SPA = list(iscsi_targets['A'])
             target_portals_SPB = list(iscsi_targets['B'])
 
+            partialSuccess = False
             for pa in target_portals_SPA:
                 sp = 'A'
                 port_id = pa['Port ID']
                 vport_id = pa['Virtual Port ID']
-                self._exec_command_setpath(initiator_uid, sp, port_id,
-                                           ip, host, vport_id)
+                rc = self._exec_command_setpath(initiator_uid, sp, port_id,
+                                                ip, host, vport_id)
+                if rc == 0:
+                    partialSuccess = True
 
             for pb in target_portals_SPB:
                 sp = 'B'
                 port_id = pb['Port ID']
                 vport_id = pb['Virtual Port ID']
-                self._exec_command_setpath(initiator_uid, sp, port_id,
-                                           ip, host, vport_id)
+                rc = self._exec_command_setpath(initiator_uid, sp, port_id,
+                                                ip, host, vport_id)
+                if rc == 0:
+                    partialSuccess = True
+
+            if not partialSuccess:
+                LOG.error(_LE("Failed to register %(itor)s."),
+                          {'itor': initiator_uid})
 
     def _register_fc_initiator(self, ip, host, initiator_uids,
                                ports_to_register=None):
@@ -3346,17 +3349,26 @@ class EMCVnxCliBase(object):
             target_portals_SPA = list(fc_targets['A'])
             target_portals_SPB = list(fc_targets['B'])
 
+            partialSuccess = False
             for pa in target_portals_SPA:
                 sp = 'A'
                 port_id = pa['Port ID']
-                self._exec_command_setpath(initiator_uid, sp, port_id,
-                                           ip, host)
+                rc = self._exec_command_setpath(initiator_uid, sp, port_id,
+                                                ip, host)
+                if rc == 0:
+                    partialSuccess = True
 
             for pb in target_portals_SPB:
                 sp = 'B'
                 port_id = pb['Port ID']
-                self._exec_command_setpath(initiator_uid, sp, port_id,
-                                           ip, host)
+                rc = self._exec_command_setpath(initiator_uid, sp, port_id,
+                                                ip, host)
+                if rc == 0:
+                    partialSuccess = True
+            
+            if not partialSuccess:
+                LOG.error(_LE("Failed to register %(itor)s."),
+                          {'itor': initiator_uid})
 
     def _deregister_initiators(self, connector):
         initiator_uids = []
