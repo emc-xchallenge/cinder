@@ -2147,6 +2147,7 @@ class EMCVnxCliBase(object):
                             "LUN creation will still be forced "
                             "even if the pool full threshold is exceeded."))
         self.reserved_percentage = self.configuration.reserved_percentage
+        self.cmd_return_code = 0
 
     def _get_managed_storage_pools(self, pools):
         storage_pools = set()
@@ -3246,6 +3247,7 @@ class EMCVnxCliBase(object):
                               '-spport', port_id,
                               '-ip', ip, '-host', host, '-o')
             out, rc = self._client.command_execute(*cmd_fc_setpath)
+        self.cmd_return_code = rc
         if rc != 0:
             LOG.warning(_LW("Failed to register %(itor)s to SP%(sp)s "
                             "port %(portid)s because: %(msg)s."),
@@ -3325,6 +3327,8 @@ class EMCVnxCliBase(object):
                 vport_id = pa['Virtual Port ID']
                 self._exec_command_setpath(initiator_uid, sp, port_id,
                                            ip, host, vport_id)
+                if self.cmd_return_code != 0:
+                    return False
 
             for pb in target_portals_SPB:
                 sp = 'B'
@@ -3332,6 +3336,9 @@ class EMCVnxCliBase(object):
                 vport_id = pb['Virtual Port ID']
                 self._exec_command_setpath(initiator_uid, sp, port_id,
                                            ip, host, vport_id)
+                if self.cmd_return_code != 0:
+                    return False
+        return True
 
     def _register_fc_initiator(self, ip, host, initiator_uids,
                                ports_to_register=None):
@@ -3351,12 +3358,17 @@ class EMCVnxCliBase(object):
                 port_id = pa['Port ID']
                 self._exec_command_setpath(initiator_uid, sp, port_id,
                                            ip, host)
+                if self.cmd_return_code != 0:
+                    return False
 
             for pb in target_portals_SPB:
                 sp = 'B'
                 port_id = pb['Port ID']
                 self._exec_command_setpath(initiator_uid, sp, port_id,
                                            ip, host)
+                if self.cmd_return_code != 0:
+                    return False
+        return True
 
     def _deregister_initiators(self, connector):
         initiator_uids = []
@@ -3399,6 +3411,7 @@ class EMCVnxCliBase(object):
         initiator_uids = []
         ip = connector['ip']
         host = connector['host']
+        initiator_registered = False
         if self.protocol == 'iSCSI':
             initiator_uids = self._extract_iscsi_uids(connector)
             if sgdata is not None:
@@ -3415,8 +3428,14 @@ class EMCVnxCliBase(object):
                          'need registration.'),
                      {'in': itors_toReg,
                       'ins': initiator_uids})
-            self._register_iscsi_initiator(ip, host, itors_toReg)
-            return True
+            initiator_registered = self._register_iscsi_initiator(
+                ip,
+                host,
+                itors_toReg)
+            if initiator_registered:
+                return True
+            else:
+                return False
 
         elif self.protocol == 'FC':
             initiator_uids = self._extract_fc_uids(connector)
@@ -3433,8 +3452,14 @@ class EMCVnxCliBase(object):
             LOG.info(_LI('FC Initiators %(in)s of %(ins)s need registration'),
                      {'in': itors_toReg,
                       'ins': initiator_uids})
-            self._register_fc_initiator(ip, host, itors_toReg)
-            return True
+            initiator_registered = self._register_fc_initiator(
+                ip,
+                host,
+                itors_toReg)
+            if initiator_registered:
+                return True
+            else:
+                return False
 
     def auto_register_initiator(self, connector, sgdata, io_ports_filter=None):
         """Automatically register available initiators.
@@ -3460,8 +3485,12 @@ class EMCVnxCliBase(object):
             # Storage Group has not existed yet
             self.assure_storage_group(hostname)
             if self.itor_auto_reg:
-                self.auto_register_initiator(connector, None, self.io_ports)
-                auto_registration_done = True
+                initiator_registered = self.auto_register_initiator(
+                    connector,
+                    None,
+                    self.io_ports)
+                if initiator_registered:
+                    auto_registration_done = True
             else:
                 self._client.connect_host_to_storage_group(hostname, hostname)
 
@@ -3474,6 +3503,9 @@ class EMCVnxCliBase(object):
             if new_registerred:
                 sgdata = self._client.get_storage_group(hostname,
                                                         poll=True)
+        if self.itor_auto_reg and self.cmd_return_code != 0:
+            self._deregister_initiators(connector)
+            raise
 
         lun_id = self.get_lun_id(volume)
         tried = 0
